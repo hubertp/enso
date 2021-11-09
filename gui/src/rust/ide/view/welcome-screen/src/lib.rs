@@ -26,7 +26,7 @@ impl Model {
         let dom = DomSymbol::new(&div);
         dom.dom().set_inner_html(&CONTENT);
         display_object.add_child(&dom);
-        app.display.scene().dom.layers.front.manage(&dom);
+        app.display.scene().dom.layers.back.manage(&dom);
         Self {
             application,
             logger,
@@ -67,6 +67,16 @@ impl View {
         let scene = app.display.scene();
         let styles = StyleWatchFrp::new(&scene.style_sheet);
         let frp = Frp::new();
+        let network = &frp.network;
+        frp::extend! { network
+            let shape  = app.display.scene().shape();
+            position <- map(shape, |scene_size| {
+                let x = -scene_size.width / 2.0;
+                let y =  scene_size.height / 2.0;
+                Vector2(x, y)
+            });
+            eval position ((pos) model.display_object.set_position_xy(*pos));
+        }
         Self {
             model,
             styles,

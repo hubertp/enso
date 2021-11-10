@@ -1,9 +1,11 @@
 use ensogl::prelude::*;
 use ensogl::{
-    system::web,
+    system::web::{self, NodeInserter},
     application::{self, Application},
     display::{self, DomSymbol, shape::StyleWatchFrp}
 };
+use wasm_bindgen::{closure::Closure, JsCast};
+use web_sys::{HtmlElement, MouseEvent};
 use enso_frp as frp;
 
 const CONTENT: &str = include_str!("../assets/templates-view.html");
@@ -22,17 +24,32 @@ impl Model {
         let application = app.clone_ref();
         let logger = Logger::new("WelcomeScreen");
         let display_object = display::object::Instance::new(&logger);
-        let div = web::create_div();
-        let dom = DomSymbol::new(&div);
-        dom.dom().set_inner_html(&CONTENT);
-        display_object.add_child(&dom);
-        app.display.scene().dom.layers.back.manage(&dom);
-        Self {
+        let root = DomSymbol::new(&web::create_div());
+        root.dom().set_class_name("templates-view");
+        root.dom().set_id("templates-view");
+        let container = web::create_div();
+        container.set_class_name("container");
+        root.append_or_panic(&container);
+        let side_menu = web::create_element("aside");
+        side_menu.set_class_name("side-menu");
+        let your_projects = web::create_element("h2");
+        your_projects.set_text_content(Some("Your projects"));
+        side_menu.append_or_panic(&your_projects);
+        container.append_or_panic(&side_menu);
+
+
+        display_object.add_child(&root);
+        app.display.scene().dom.layers.back.manage(&root);
+
+
+        let model = Self {
             application,
             logger,
-            dom,
+            dom: root,
             display_object,
-        }
+        }; 
+
+        model
     }
 }
 

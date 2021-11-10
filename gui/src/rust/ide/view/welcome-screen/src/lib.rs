@@ -7,6 +7,7 @@ use ensogl::display::{self};
 use ensogl::prelude::*;
 use ensogl::system::web::AttributeSetter;
 use ensogl::system::web::NodeInserter;
+use ensogl::system::web::StyleSetter;
 use ensogl::system::web::{self};
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
@@ -29,87 +30,127 @@ impl Model {
         let application = app.clone_ref();
         let logger = Logger::new("WelcomeScreen");
         let display_object = display::object::Instance::new(&logger);
-        let root = DomSymbol::new(&web::create_div());
-        root.dom().set_class_name("templates-view");
-        root.dom().set_id("templates-view");
-        let container = web::create_div();
-        container.set_class_name("container");
-        root.append_or_panic(&container);
+
+        let welcome_screen = {
+            let welcome_screen = web::create_div();
+            welcome_screen.set_class_name("templates-view");
+            welcome_screen.set_id("templates-view");
+
+            let container = {
+                let container = web::create_div();
+                container.set_class_name("container");
+
+                container.append_or_panic(&Self::create_side_menu());
+                container.append_or_panic(&Self::create_templates());
+
+                container
+            };
+            welcome_screen.append_or_panic(&container);
+            welcome_screen
+        };
+
+        let dom = DomSymbol::new(&welcome_screen);
+        display_object.add_child(&dom);
+        app.display.scene().dom.layers.back.manage(&dom);
+
+
+        let model = Self { application, logger, dom, display_object };
+
+        model
+    }
+
+    fn create_side_menu() -> web_sys::Element {
         let side_menu = web::create_element("aside");
         side_menu.set_class_name("side-menu");
-        let your_projects = web::create_element("h2");
-        your_projects.set_text_content(Some("Your projects"));
-        side_menu.append_or_panic(&your_projects);
-        container.append_or_panic(&side_menu);
+        let header = {
+            let header = web::create_element("h2");
+            header.set_text_content(Some("Your projects"));
+            header
+        };
+        side_menu.append_or_panic(&header);
 
-        let projects_list = web::create_element("ul");
-        projects_list.set_id("projects-list");
-        let new_project = web::create_element("li");
-        new_project.set_id("projects-list-new-project");
-        new_project.set_text_content(Some("Create a new project"));
-        let img = web::create_element("img");
-        img.set_attribute_or_panic("src", "/assets/new-project.svg");
-        new_project.append_or_panic(&img);
-        projects_list.append_or_panic(&new_project);
+        let projects_list = {
+            let projects_list = web::create_element("ul");
+            projects_list.set_id("projects-list");
 
+            let new_project = web::create_element("li");
+            new_project.set_id("projects-list-new-project");
+            new_project
+                .set_inner_html(r#"<img src="/assets/new-project.svg" />Create a new project"#);
+            projects_list.append_or_panic(&new_project);
+
+            projects_list
+        };
         side_menu.append_or_panic(&projects_list);
 
+        side_menu
+    }
+
+    fn create_templates() -> web_sys::Element {
         let content = web::create_element("main");
         content.set_class_name("content");
-        container.append_or_panic(&content);
 
-        let templates = web::create_div();
+        let templates = {
+            let templates = web::create_div();
+            let header = {
+                let header = web::create_element("h2");
+                header.set_text_content(Some("Templates"));
+                header
+            };
+            templates.append_or_panic(&header);
+            templates.append_or_panic(&Self::create_cards());
+            templates
+        };
         content.append_or_panic(&templates);
 
-        let templates_header = web::create_element("h2");
-        templates_header.set_text_content(Some("Templates"));
-        templates.append_or_panic(&templates_header);
+        content
+    }
 
+    fn create_cards() -> web_sys::HtmlDivElement {
         let cards = web::create_div();
         cards.set_class_name("cards");
 
-        let row1 = web::create_div();
-        row1.set_class_name("row");
-        let row2 = web::create_div();
-        row1.set_class_name("row");
+        let row1 = {
+            let row = web::create_div();
+            row.set_class_name("row");
+            let card_spreadsheets = Self::create_card(
+                "card-spreadsheets",
+                "card card-spreadsheets",
+                Some("/assets/spreadsheets.png"),
+                "Combine spreadsheets",
+                "Glue multiple spreadsheets together to analyse all your data at once.",
+            );
 
-        let card_spreadsheets = Self::create_card(
-            "card-spreadsheets",
-            "card card-spreadsheets",
-            Some("/assets/spreadsheets.png"),
-            "Combine spreadsheets",
-            "Glue multiple spreadsheets together to analyse all your data at once.",
-        );
+            let card_geo = Self::create_card(
+                "card-geo",
+                "card card-geo",
+                None,
+                "Geospatial analysis",
+                "Learn where to open a coffee shop to maximize your income.",
+            );
+            row.append_or_panic(&card_spreadsheets);
+            row.append_or_panic(&card_geo);
 
-        let card_geo = Self::create_card(
-            "card-geo",
-            "card card-geo",
-            None,
-            "Geospatial analysis",
-            "Learn where to open a coffee shop to maximize your income.",
-        );
-        let card_visualize = Self::create_card(
-            "card-visualize",
-            "card card-visualize",
-            None,
-            "Analyze GitHub stars",
-            "Find out which of Enso's repositories are most popular over time.",
-        );
-        row1.append_or_panic(&card_spreadsheets);
-        row1.append_or_panic(&card_geo);
-        row2.append_or_panic(&card_visualize);
+            row
+        };
+        let row2 = {
+            let row = web::create_div();
+            row.set_class_name("row");
+            let card_visualize = Self::create_card(
+                "card-visualize",
+                "card card-visualize",
+                None,
+                "Analyze GitHub stars",
+                "Find out which of Enso's repositories are most popular over time.",
+            );
+            row.append_or_panic(&card_visualize);
+
+            row
+        };
         cards.append_or_panic(&row1);
         cards.append_or_panic(&row2);
-        templates.append_or_panic(&cards);
 
-
-        display_object.add_child(&root);
-        app.display.scene().dom.layers.back.manage(&root);
-
-
-        let model = Self { application, logger, dom: root, display_object };
-
-        model
+        cards
     }
 
     fn create_card(

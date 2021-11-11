@@ -30,6 +30,7 @@ pub mod debug_scenes;
 pub mod documentation;
 pub mod open_dialog;
 pub mod project;
+pub mod root;
 pub mod searcher;
 pub mod status_bar;
 pub mod window_control_buttons;

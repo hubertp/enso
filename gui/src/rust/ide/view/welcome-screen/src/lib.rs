@@ -13,8 +13,9 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 use web_sys::MouseEvent;
+use std::rc::Rc;
 
-const CONTENT: &str = include_str!("../assets/templates-view.html");
+type ClickClosure = Closure<dyn FnMut(MouseEvent)>;
 
 #[derive(Clone, CloneRef, Debug)]
 #[allow(missing_docs)]
@@ -23,6 +24,7 @@ pub struct Model {
     logger:         Logger,
     dom:            DomSymbol,
     display_object: display::object::Instance,
+    closures: Rc<CloneCell<Vec<ClickClosure>>>,
 }
 
 impl Model {
@@ -31,6 +33,7 @@ impl Model {
         let logger = Logger::new("WelcomeScreen");
         let display_object = display::object::Instance::new(&logger);
 
+        let mut closures = Vec::new();
         let welcome_screen = {
             let welcome_screen = web::create_div();
             welcome_screen.set_class_name("templates-view");
@@ -41,7 +44,7 @@ impl Model {
                 container.set_class_name("container");
 
                 container.append_or_panic(&Self::create_side_menu());
-                container.append_or_panic(&Self::create_templates());
+                container.append_or_panic(&Self::create_templates(&mut closures, logger.clone_ref()));
 
                 container
             };
@@ -54,7 +57,7 @@ impl Model {
         app.display.scene().dom.layers.back.manage(&dom);
 
 
-        let model = Self { application, logger, dom, display_object };
+        let model = Self { application, logger, dom, display_object, closures: Rc::new(CloneCell::new(closures))};
 
         model
     }
@@ -86,7 +89,7 @@ impl Model {
         side_menu
     }
 
-    fn create_templates() -> web_sys::Element {
+    fn create_templates(closures: &mut Vec<ClickClosure>, logger: Logger) -> web_sys::Element {
         let content = web::create_element("main");
         content.set_class_name("content");
 
@@ -98,7 +101,7 @@ impl Model {
                 header
             };
             templates.append_or_panic(&header);
-            templates.append_or_panic(&Self::create_cards());
+            templates.append_or_panic(&Self::create_cards(closures, logger));
             templates
         };
         content.append_or_panic(&templates);
@@ -106,7 +109,7 @@ impl Model {
         content
     }
 
-    fn create_cards() -> web_sys::HtmlDivElement {
+    fn create_cards(closures: &mut Vec<ClickClosure>, logger: Logger) -> web_sys::HtmlDivElement {
         let cards = web::create_div();
         cards.set_class_name("cards");
 
@@ -120,6 +123,17 @@ impl Model {
                 "Combine spreadsheets",
                 "Glue multiple spreadsheets together to analyse all your data at once.",
             );
+
+            let closure = Box::new(move |_event: MouseEvent| {
+                info!(logger, "Closure!");
+                web_sys::console::log_1(&"Closure web_sys!".into());
+            });
+            let closure: Closure<dyn FnMut(MouseEvent)> = Closure::wrap(closure);
+            let callback = closure.as_ref().unchecked_ref();
+            card_spreadsheets
+                .add_event_listener_with_callback("click", callback)
+                .expect("Unable to add event listener");
+            closures.push(closure);
 
             let card_geo = Self::create_card(
                 "card-geo",

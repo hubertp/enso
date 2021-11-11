@@ -66,17 +66,44 @@ impl Initializer {
             info!(self.logger, "Starting IDE with the following config: {self.config:?}");
 
             let application = Application::new(&web::get_html_element_by_id("root").unwrap());
-            let view = application.new_view::<ide_view::welcome_screen::View>();
-            //let view = application.new_view::<ide_view::project::View>();
+            match self.config.backend {
+                crate::config::BackendService::ProjectManager { ref endpoint } => {
+                    let project_manager = self.setup_project_manager(&endpoint).await.unwrap();
+                    //let view = ide_view::root::View::new(&application, project_manager);
+                    let view = application.new_view::<ide_view::welcome_screen::View>();
+                    application.display.add_child(&view);
+                    std::mem::forget(view);
+                    std::mem::forget(application);
+
+                },
+                _ => {}
+            }
             //let status_bar = view.status_bar().clone_ref();
-            
             // We know the name of new project before it loads. We set it right now to avoid
             // displaying placeholder on the scene during loading.
             //view.graph().model.breadcrumbs.project_name(self.config.project_name.to_string());
-            application.display.add_child(&view);
-            std::mem::forget(application);
-            std::mem::forget(view);
-            info!(self.logger, "Setup done.");
+            //application.display.add_child(&view);
+            // TODO [mwu] Once IDE gets some well-defined mechanism of reporting
+            //      issues to user, such information should be properly passed
+            //      in case of setup failure.
+            //let result: FallibleResult<Ide> = (async {
+            //    let controller = self.initialize_ide_controller().await?;
+            //    Ok(Ide::new(application, view.clone_ref(), controller).await)
+            //})
+            //.await;
+
+            //match result {
+            //    Ok(ide) => {
+            //        info!(self.logger, "Setup done.");
+            //        std::mem::forget(ide);
+            //    }
+            //    Err(err) => {
+            //        let message = iformat!("Failed to initialize application: {err}");
+            //        error!(self.logger, "{message}");
+            //        status_bar.add_event(ide_view::status_bar::event::Label::new(message));
+            //        std::mem::forget(view);
+            //    }
+            //}
 
             web::get_element_by_id("loader")
                 .map(|t| t.parent_node().map(|p| p.remove_child(&t).unwrap()))

@@ -66,17 +66,11 @@ impl Initializer {
             info!(self.logger, "Starting IDE with the following config: {self.config:?}");
 
             let application = Application::new(&web::get_html_element_by_id("root").unwrap());
-            match self.config.backend {
-                crate::config::BackendService::ProjectManager { ref endpoint } => {
-                    //let project_manager = self.setup_project_manager(&endpoint).await.unwrap();
-                    let view = application.new_view::<ide_view::root::View>();
-                    application.display.add_child(&view);
-                    std::mem::forget(view);
-                    std::mem::forget(application);
+            let view = application.new_view::<ide_view::root::View>();
+            application.display.add_child(&view);
+            std::mem::forget(view);
+            std::mem::forget(application);
 
-                },
-                _ => {}
-            }
             //let status_bar = view.status_bar().clone_ref();
             // We know the name of new project before it loads. We set it right now to avoid
             // displaying placeholder on the scene during loading.
@@ -85,11 +79,12 @@ impl Initializer {
             // TODO [mwu] Once IDE gets some well-defined mechanism of reporting
             //      issues to user, such information should be properly passed
             //      in case of setup failure.
-            //let result: FallibleResult<Ide> = (async {
-            //    let controller = self.initialize_ide_controller().await?;
-            //    Ok(Ide::new(application, view.clone_ref(), controller).await)
-            //})
-            //.await;
+            let _result: FallibleResult<()> = (async {
+                let controller = self.initialize_ide_controller().await?;
+                Ok(())
+                //Ok(Ide::new(application, view.clone_ref(), controller).await)
+            })
+            .await;
 
             //match result {
             //    Ok(ide) => {
@@ -120,10 +115,10 @@ impl Initializer {
         match &self.config.backend {
             ProjectManager { endpoint } => {
                 let project_manager = self.setup_project_manager(endpoint).await?;
-                let project_name = self.config.project_name.clone();
-                let controller = controller::ide::Desktop::new_with_opened_project(
+                let maybe_project_name = self.config.project_name.clone();
+                let controller = controller::ide::Desktop::new(
                     project_manager,
-                    project_name,
+                    maybe_project_name,
                 )
                 .await?;
                 Ok(Rc::new(controller))
@@ -132,7 +127,7 @@ impl Initializer {
                 let json_endpoint = json_endpoint.clone();
                 let binary_endpoint = binary_endpoint.clone();
                 let namespace = namespace.clone();
-                let project_name = self.config.project_name.clone();
+                let project_name = self.config.project_name.clone().unwrap(); // TODO: handle unwrap
                 // TODO[ao]: we should think how to handle engine's versions in cloud.
                 //     https://github.com/enso-org/ide/issues/1195
                 let version = CONFIG.engine_version.clone();

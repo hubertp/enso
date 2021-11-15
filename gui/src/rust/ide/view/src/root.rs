@@ -17,8 +17,8 @@ use std::rc::Rc;
 
 #[derive(Clone, CloneRef, Debug)]
 enum State {
-    WelcomeScreen(crate::welcome_screen::View),
-    Ide(crate::project::View),
+    WelcomeScreen,
+    ProjectOpened,
 }
 
 #[derive(Clone, CloneRef, Debug)]
@@ -28,6 +28,8 @@ pub struct Model {
     logger:         Logger,
     display_object: display::object::Instance,
     state: State,
+    welcome_view: crate::welcome_screen::View,
+    project_view: crate::project::View,
 }
 
 impl Model {
@@ -35,11 +37,12 @@ impl Model {
         let application = app.clone_ref();
         let logger = Logger::new("WelcomeScreen");
         let display_object = display::object::Instance::new(&logger);
-        let welcome_screen_view = app.new_view::<crate::welcome_screen::View>();
-        display_object.add_child(&welcome_screen_view);
-        let state = State::WelcomeScreen(welcome_screen_view);
+        let welcome_view = app.new_view::<crate::welcome_screen::View>();
+        display_object.add_child(&welcome_view);
 
-        let model = Self { application, logger, display_object, state };
+        let project_view = app.new_view::<crate::project::View>();
+
+        let model = Self { application, logger, display_object, welcome_view, project_view, state: State::WelcomeScreen };
 
         model
     }
@@ -76,6 +79,14 @@ impl View {
         let frp = Frp::new();
         let network = &frp.network;
         Self { model, frp }
+    }
+
+    pub fn status_bar(&self) -> &crate::status_bar::View {
+        self.model.project_view.status_bar()
+    }
+
+    pub fn project_view(&self) -> &crate::project::View {
+        &self.model.project_view
     }
 }
 

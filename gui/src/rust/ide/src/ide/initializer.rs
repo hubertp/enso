@@ -69,7 +69,6 @@ impl Initializer {
             match self.config.backend {
                 crate::config::BackendService::ProjectManager { ref endpoint } => {
                     let project_manager = self.setup_project_manager(&endpoint).await.unwrap();
-                    //let view = ide_view::root::View::new(&application, project_manager);
                     let view = application.new_view::<ide_view::welcome_screen::View>();
                     application.display.add_child(&view);
                     std::mem::forget(view);

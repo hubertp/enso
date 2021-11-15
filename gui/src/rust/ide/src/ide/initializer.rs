@@ -68,8 +68,8 @@ impl Initializer {
             let application = Application::new(&web::get_html_element_by_id("root").unwrap());
             match self.config.backend {
                 crate::config::BackendService::ProjectManager { ref endpoint } => {
-                    let project_manager = self.setup_project_manager(&endpoint).await.unwrap();
-                    let view = application.new_view::<ide_view::welcome_screen::View>();
+                    //let project_manager = self.setup_project_manager(&endpoint).await.unwrap();
+                    let view = application.new_view::<ide_view::root::View>();
                     application.display.add_child(&view);
                     std::mem::forget(view);
                     std::mem::forget(application);

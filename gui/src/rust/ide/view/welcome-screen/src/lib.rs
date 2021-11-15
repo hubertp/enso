@@ -195,11 +195,10 @@ impl Model {
 
 ensogl::define_endpoints! {
     Input {
-
+        projects_list(Vec<String>)
     }
 
     Output {
-
     }
 }
 
@@ -208,7 +207,7 @@ ensogl::define_endpoints! {
 pub struct View {
     model:  Model,
     styles: StyleWatchFrp,
-    frp:    Frp,
+    pub frp: Frp,
 }
 
 impl Deref for View {
@@ -225,7 +224,10 @@ impl View {
         let styles = StyleWatchFrp::new(&scene.style_sheet);
         let frp = Frp::new();
         let network = &frp.network;
+        let logger = &model.logger;
         frp::extend! { network
+            eval frp.projects_list([logger] (list) error!(logger, "{list:?}"));
+
             let shape  = app.display.scene().shape();
             position <- map(shape, |scene_size| {
                 let x = -scene_size.width / 2.0;

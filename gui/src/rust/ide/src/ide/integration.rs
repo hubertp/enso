@@ -91,6 +91,7 @@ impl Integration {
     pub fn init(self) -> Self {
         self.initialize_status_bar_integration();
         self.initialize_controller_integration();
+        self.initialize_welcome_screen();
         self.model.clone_ref().setup_and_display_new_project();
         self
     }
@@ -141,5 +142,24 @@ impl Integration {
             }
             futures::future::ready(())
         }));
+    }
+    
+    fn initialize_welcome_screen(&self) {
+        let controller = self.model.controller.clone_ref();
+        let welcome_view_frp = self.model.view.welcome_view().frp.clone_ref();
+        let logger = self.model.logger.clone_ref();
+        crate::executor::global::spawn(async move {
+            if let Ok(project_manager) = controller.manage_projects() {
+                match project_manager.list_projects().await {
+                    Ok(projects) => {
+                        let names = projects.into_iter().map(|project| project.name.into()).collect::<Vec<_>>();
+                        welcome_view_frp.projects_list(names);
+                    },
+                    Err(err) => {
+                        error!(logger, "Unable to get list of projects: {err}");
+                    }
+                }
+            }
+        });
     }
 }

@@ -35,7 +35,7 @@ pub struct Model {
 impl Model {
     pub fn new(app: &Application) -> Self {
         let application = app.clone_ref();
-        let logger = Logger::new("WelcomeScreen");
+        let logger = Logger::new("RootView");
         let display_object = display::object::Instance::new(&logger);
         let welcome_view = app.new_view::<crate::welcome_screen::View>();
         display_object.add_child(&welcome_view);
@@ -87,6 +87,10 @@ impl View {
 
     pub fn project_view(&self) -> &crate::project::View {
         &self.model.project_view
+    }
+
+    pub fn welcome_view(&self) -> &crate::welcome_screen::View {
+        &self.model.welcome_view
     }
 }
 

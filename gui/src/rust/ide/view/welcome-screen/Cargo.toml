@@ -14,4 +14,5 @@ wasm-bindgen = { version = "=0.2.58", features = [
   "nightly",
   "serde-serialize"
 ] }
+utils = { path = "/home/ilya/enso/gui/src/rust/ide/lib/utils/" }
 web-sys = { version = "0.3.4", features = [] }

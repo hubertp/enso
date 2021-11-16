@@ -9,11 +9,12 @@ use ensogl::system::web::AttributeSetter;
 use ensogl::system::web::NodeInserter;
 use ensogl::system::web::StyleSetter;
 use ensogl::system::web::{self};
+use std::rc::Rc;
+use utils::fail::FallibleResult;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 use web_sys::MouseEvent;
-use std::rc::Rc;
 
 type ClickClosure = Closure<dyn FnMut(MouseEvent)>;
 
@@ -24,7 +25,7 @@ pub struct Model {
     logger:         Logger,
     dom:            DomSymbol,
     display_object: display::object::Instance,
-    closures: Rc<CloneCell<Vec<ClickClosure>>>,
+    closures:       Rc<CloneCell<Vec<ClickClosure>>>,
 }
 
 impl Model {
@@ -44,7 +45,8 @@ impl Model {
                 container.set_class_name("container");
 
                 container.append_or_panic(&Self::create_side_menu());
-                container.append_or_panic(&Self::create_templates(&mut closures, logger.clone_ref()));
+                container
+                    .append_or_panic(&Self::create_templates(&mut closures, logger.clone_ref()));
 
                 container
             };
@@ -55,9 +57,17 @@ impl Model {
         let dom = DomSymbol::new(&welcome_screen);
         display_object.add_child(&dom);
         app.display.scene().dom.layers.back.manage(&dom);
+        // Use `panel` layer to lock position when panning
+        app.display.scene().layers.panel.add_exclusive(&dom);
 
 
-        let model = Self { application, logger, dom, display_object, closures: Rc::new(CloneCell::new(closures))};
+        let model = Self {
+            application,
+            logger,
+            dom,
+            display_object,
+            closures: Rc::new(CloneCell::new(closures)),
+        };
 
         model
     }
@@ -191,6 +201,17 @@ impl Model {
 
         card
     }
+
+    fn update_projects_list(&self, projects: &[String]) -> FallibleResult {
+        let projects_list = web::get_element_by_id("projects-list")?;
+        let new_project_button = web::get_element_by_id("projects-list-new-project")?;
+        for project in projects {
+            let node = web::create_element("li");
+            node.set_inner_html(&iformat!(r#"<img src="assets/project.svg"/> {project}"#));
+            projects_list.insert_before_or_warn(&node, &new_project_button, &self.logger);
+        }
+        Ok(())
+    }
 }
 
 ensogl::define_endpoints! {
@@ -205,8 +226,8 @@ ensogl::define_endpoints! {
 
 #[derive(Clone, CloneRef, Debug)]
 pub struct View {
-    model:  Model,
-    styles: StyleWatchFrp,
+    model:   Model,
+    styles:  StyleWatchFrp,
     pub frp: Frp,
 }
 
@@ -225,8 +246,13 @@ impl View {
         let frp = Frp::new();
         let network = &frp.network;
         let logger = &model.logger;
+        let model_clone = model.clone_ref();
         frp::extend! { network
-            eval frp.projects_list([logger] (list) error!(logger, "{list:?}"));
+            eval frp.projects_list([logger] (list) {
+                if let Err(err) = model_clone.update_projects_list(&list) {
+                    error!(logger, "Unable to update projects_list: {err}");
+                }
+            });
 
             let shape  = app.display.scene().shape();
             position <- map(shape, |scene_size| {

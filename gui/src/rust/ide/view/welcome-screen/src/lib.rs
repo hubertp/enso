@@ -21,11 +21,13 @@ type ClickClosure = Closure<dyn FnMut(MouseEvent)>;
 #[derive(Clone, CloneRef, Debug)]
 #[allow(missing_docs)]
 pub struct Model {
-    application:    Application,
-    logger:         Logger,
-    dom:            DomSymbol,
-    display_object: display::object::Instance,
-    closures:       Rc<CloneCell<Vec<ClickClosure>>>,
+    application:             Application,
+    logger:                  Logger,
+    dom:                     DomSymbol,
+    display_object:          display::object::Instance,
+    closures:                Rc<RefCell<Vec<ClickClosure>>>,
+    projects_list:           Rc<web_sys::Element>,
+    project_list_new_button: Rc<web_sys::Element>,
 }
 
 impl Model {
@@ -35,23 +37,24 @@ impl Model {
         let display_object = display::object::Instance::new(&logger);
 
         let mut closures = Vec::new();
-        let welcome_screen = {
+        let (welcome_screen, projects_list, new_project) = {
             let welcome_screen = web::create_div();
             welcome_screen.set_class_name("templates-view");
             welcome_screen.set_id("templates-view");
 
-            let container = {
+            let (container, projects_list, new_project) = {
                 let container = web::create_div();
                 container.set_class_name("container");
 
-                container.append_or_panic(&Self::create_side_menu());
+                let (side_menu, projects_list, new_project) = Self::create_side_menu();
+                container.append_or_panic(&side_menu);
                 container
                     .append_or_panic(&Self::create_templates(&mut closures, logger.clone_ref()));
 
-                container
+                (container, projects_list, new_project)
             };
             welcome_screen.append_or_panic(&container);
-            welcome_screen
+            (welcome_screen, projects_list, new_project)
         };
 
         let dom = DomSymbol::new(&welcome_screen);
@@ -66,13 +69,15 @@ impl Model {
             logger,
             dom,
             display_object,
-            closures: Rc::new(CloneCell::new(closures)),
+            projects_list: Rc::new(projects_list),
+            project_list_new_button: Rc::new(new_project),
+            closures: Rc::new(RefCell::new(closures)),
         };
 
         model
     }
 
-    fn create_side_menu() -> web_sys::Element {
+    fn create_side_menu() -> (web_sys::Element, web_sys::Element, web_sys::Element) {
         let side_menu = web::create_element("aside");
         side_menu.set_class_name("side-menu");
         let header = {
@@ -82,11 +87,12 @@ impl Model {
         };
         side_menu.append_or_panic(&header);
 
+        let new_project;
         let projects_list = {
             let projects_list = web::create_element("ul");
             projects_list.set_id("projects-list");
 
-            let new_project = web::create_element("li");
+            new_project = web::create_element("li");
             new_project.set_id("projects-list-new-project");
             new_project
                 .set_inner_html(r#"<img src="/assets/new-project.svg" />Create a new project"#);
@@ -96,7 +102,7 @@ impl Model {
         };
         side_menu.append_or_panic(&projects_list);
 
-        side_menu
+        (side_menu, projects_list, new_project)
     }
 
     fn create_templates(closures: &mut Vec<ClickClosure>, logger: Logger) -> web_sys::Element {
@@ -202,12 +208,23 @@ impl Model {
         card
     }
 
-    fn update_projects_list(&self, projects: &[String]) -> FallibleResult {
-        let projects_list = web::get_element_by_id("projects-list")?;
-        let new_project_button = web::get_element_by_id("projects-list-new-project")?;
+    fn update_projects_list(&self, projects: &[String], frp: Frp) -> FallibleResult {
+        let projects_list = self.projects_list.clone_ref();
+        let new_project_button = self.project_list_new_button.clone_ref();
         for project in projects {
+            let project = project.clone();
             let node = web::create_element("li");
             node.set_inner_html(&iformat!(r#"<img src="assets/project.svg"/> {project}"#));
+            node.set_attribute_or_warn("style", "cursor: pointer", &self.logger);
+            let frp = frp.clone_ref();
+            let closure = Box::new(move |_event: MouseEvent| {
+                frp.open_project.emit(project.clone());
+            });
+            let closure: Closure<dyn FnMut(MouseEvent)> = Closure::wrap(closure);
+            let callback = closure.as_ref().unchecked_ref();
+            node.add_event_listener_with_callback("click", callback)
+                .expect("Unable to add event listener");
+            self.closures.borrow_mut().push(closure);
             projects_list.insert_before_or_warn(&node, &new_project_button, &self.logger);
         }
         Ok(())
@@ -216,10 +233,14 @@ impl Model {
 
 ensogl::define_endpoints! {
     Input {
-        projects_list(Vec<String>)
+        projects_list(Vec<String>),
+
+        open_project(String),
+        init(),
     }
 
     Output {
+        opened_project(Option<String>)
     }
 }
 
@@ -246,13 +267,21 @@ impl View {
         let frp = Frp::new();
         let network = &frp.network;
         let logger = &model.logger;
+        let frp_clone = frp.clone();
         let model_clone = model.clone_ref();
         frp::extend! { network
-            eval frp.projects_list([logger] (list) {
-                if let Err(err) = model_clone.update_projects_list(&list) {
+            init <- source_();
+
+            initialization_finished <- toggle(&init);
+            projects_need_update <- gate(&frp.projects_list, &initialization_finished);
+
+            eval projects_need_update([logger] (list) {
+                if let Err(err) = model_clone.update_projects_list(&list, frp_clone.clone_ref()) {
                     error!(logger, "Unable to update projects_list: {err}");
                 }
             });
+
+            frp.source.opened_project <+ frp.open_project.map(|name| Some(name.clone()));
 
             let shape  = app.display.scene().shape();
             position <- map(shape, |scene_size| {
@@ -262,6 +291,8 @@ impl View {
             });
             eval position ((pos) model.display_object.set_position_xy(*pos));
         }
+        init.emit(());
+
         Self { model, styles, frp }
     }
 }

@@ -1,5 +1,7 @@
 //! The integration layer between IDE controllers and the view.
 
+use enso_frp as frp;
+
 pub mod file_system;
 pub mod project;
 pub mod visualization;
@@ -63,8 +65,11 @@ impl Model {
             }
         });
     }
-}
 
+    fn open_project(&self, name: &str) {
+        error!(self.logger, "Open project: {name}");
+    }
+}
 
 // === Integration ===
 
@@ -74,7 +79,8 @@ impl Model {
 /// notifications from controllers will update the view.
 #[derive(Clone, CloneRef, Debug)]
 pub struct Integration {
-    model: Rc<Model>,
+    model:   Rc<Model>,
+    network: frp::Network,
 }
 
 impl Integration {
@@ -82,8 +88,15 @@ impl Integration {
     pub fn new(controller: controller::Ide, view: ide_view::root::View) -> Self {
         let logger = Logger::new("ide::Integration");
         let project_integration = default();
+        let welcome_view_frp = view.welcome_view().frp.clone_ref();
         let model = Rc::new(Model { logger, controller, view, project_integration });
-        Self { model }.init()
+
+        frp::new_network! { network
+            let opened_project = welcome_view_frp.opened_project.clone_ref();
+            project_opened <- opened_project.filter_map(|name| name.clone());
+            eval project_opened((name) model.open_project(name));
+        };
+        Self { model, network }.init()
     }
 
     /// Initialize integration, so FRP outputs of the view will call the proper controller methods,
@@ -143,7 +156,7 @@ impl Integration {
             futures::future::ready(())
         }));
     }
-    
+
     fn initialize_welcome_screen(&self) {
         let controller = self.model.controller.clone_ref();
         let welcome_view_frp = self.model.view.welcome_view().frp.clone_ref();
@@ -152,12 +165,13 @@ impl Integration {
             if let Ok(project_manager) = controller.manage_projects() {
                 match project_manager.list_projects().await {
                     Ok(projects) => {
-                        let names = projects.into_iter().map(|project| project.name.into()).collect::<Vec<_>>();
+                        let names = projects
+                            .into_iter()
+                            .map(|project| project.name.into())
+                            .collect::<Vec<_>>();
                         welcome_view_frp.projects_list(names);
-                    },
-                    Err(err) => {
-                        error!(logger, "Unable to get list of projects: {err}");
                     }
+                    Err(err) => error!(logger, "Unable to get list of projects: {err}"),
                 }
             }
         });

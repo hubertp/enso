@@ -56,6 +56,7 @@ impl Model {
                     // We don't want any initialization-related changes to appear on undo stack.
                     integration.graph_controller().undo_redo_repository().clear_all();
                     *self.project_integration.borrow_mut() = Some(integration);
+                    error!(self.logger, "Project integration created");
                 }
                 Err(err) => {
                     let err_msg = format!("Failed to initialize project: {}", err);
@@ -67,7 +68,28 @@ impl Model {
     }
 
     fn open_project(&self, name: &str) {
-        error!(self.logger, "Open project: {name}");
+        error!(self.logger, "Look, we are opening a project now!");
+        let logger = self.logger.clone_ref();
+        let controller = self.controller.clone_ref();
+        let name = name.to_owned();
+        crate::executor::global::spawn(async move {
+            if let Ok(managing_api) = controller.manage_projects() {
+                match managing_api.list_projects().await {
+                    Ok(projects) => {
+                        if let Some(uuid) = projects
+                            .into_iter()
+                            .find(|project| project.name.0 == name)
+                            .map(|project| project.id)
+                        {
+                            if let Err(err) = managing_api.open_project(uuid).await {
+                                error!(logger, "Could not open open project `{name}`: {err}");
+                            }
+                        }
+                    }
+                    Err(err) => error!(logger, "Could not list projects: {err}")
+                }
+            }
+        })
     }
 }
 
@@ -89,12 +111,16 @@ impl Integration {
         let logger = Logger::new("ide::Integration");
         let project_integration = default();
         let welcome_view_frp = view.welcome_view().frp.clone_ref();
+        let root_frp = view.frp.clone_ref();
         let model = Rc::new(Model { logger, controller, view, project_integration });
 
         frp::new_network! { network
             let opened_project = welcome_view_frp.opened_project.clone_ref();
             project_opened <- opened_project.filter_map(|name| name.clone());
-            eval project_opened((name) model.open_project(name));
+            eval project_opened((name) {
+                model.open_project(name);
+                root_frp.switch_view.emit(());
+            });
         };
         Self { model, network }.init()
     }

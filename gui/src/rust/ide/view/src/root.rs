@@ -9,13 +9,13 @@ use ensogl::system::web::AttributeSetter;
 use ensogl::system::web::NodeInserter;
 use ensogl::system::web::StyleSetter;
 use ensogl::system::web::{self};
+use std::rc::Rc;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 use web_sys::MouseEvent;
-use std::rc::Rc;
 
-#[derive(Clone, CloneRef, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum State {
     WelcomeScreen,
     ProjectOpened,
@@ -27,9 +27,9 @@ pub struct Model {
     application:    Application,
     logger:         Logger,
     display_object: display::object::Instance,
-    state: State,
-    welcome_view: crate::welcome_screen::View,
-    project_view: crate::project::View,
+    state:          Rc<CloneCell<State>>,
+    welcome_view:   crate::welcome_screen::View,
+    project_view:   crate::project::View,
 }
 
 impl Model {
@@ -42,15 +42,28 @@ impl Model {
 
         let project_view = app.new_view::<crate::project::View>();
 
-        let model = Self { application, logger, display_object, welcome_view, project_view, state: State::WelcomeScreen };
+        let model = Self {
+            application,
+            logger,
+            display_object,
+            welcome_view,
+            project_view,
+            state: Rc::new(CloneCell::new(State::WelcomeScreen)),
+        };
 
         model
+    }
+
+    fn switch_view(&self) {
+        self.state.set(State::ProjectOpened);
+        self.display_object.remove_child(&self.welcome_view);
+        self.display_object.add_child(&self.project_view);
     }
 }
 
 ensogl::define_endpoints! {
     Input {
-
+        switch_view(),
     }
 
     Output {
@@ -61,8 +74,8 @@ ensogl::define_endpoints! {
 
 #[derive(Clone, CloneRef, Debug)]
 pub struct View {
-    model:  Model,
-    frp:    Frp,
+    model:   Model,
+    pub frp: Frp,
 }
 
 impl Deref for View {
@@ -78,6 +91,9 @@ impl View {
         let scene = app.display.scene();
         let frp = Frp::new();
         let network = &frp.network;
+        frp::extend! { network
+            eval_ frp.switch_view(model.switch_view());
+        }
         Self { model, frp }
     }
 

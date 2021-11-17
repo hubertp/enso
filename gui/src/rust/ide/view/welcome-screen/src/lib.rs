@@ -31,7 +31,7 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn new(app: &Application) -> Self {
+    pub fn new(app: &Application, frp: Frp) -> Self {
         let application = app.clone_ref();
         let logger = Logger::new("WelcomeScreen");
         let display_object = display::object::Instance::new(&logger);
@@ -46,7 +46,7 @@ impl Model {
                 let container = web::create_div();
                 container.set_class_name("container");
 
-                let (side_menu, projects_list, new_project) = Self::create_side_menu();
+                let (side_menu, projects_list, new_project) = Self::create_side_menu(&mut closures, frp);
                 container.append_or_panic(&side_menu);
                 container
                     .append_or_panic(&Self::create_templates(&mut closures, logger.clone_ref()));
@@ -77,7 +77,7 @@ impl Model {
         model
     }
 
-    fn create_side_menu() -> (web_sys::Element, web_sys::Element, web_sys::Element) {
+    fn create_side_menu(closures: &mut Vec<ClickClosure>, frp: Frp) -> (web_sys::Element, web_sys::Element, web_sys::Element) {
         let side_menu = web::create_element("aside");
         side_menu.set_class_name("side-menu");
         let header = {
@@ -96,6 +96,17 @@ impl Model {
             new_project.set_id("projects-list-new-project");
             new_project
                 .set_inner_html(r#"<img src="/assets/new-project.svg" />Create a new project"#);
+
+            let closure = Box::new(move |_event: MouseEvent| {
+                frp.create_project.emit(());
+            });
+            let closure: Closure<dyn FnMut(MouseEvent)> = Closure::wrap(closure);
+            let callback = closure.as_ref().unchecked_ref();
+            new_project
+                .add_event_listener_with_callback("click", callback)
+                .expect("Unable to add event listener");
+            closures.push(closure);
+
             projects_list.append_or_panic(&new_project);
 
             projects_list
@@ -236,11 +247,12 @@ ensogl::define_endpoints! {
         projects_list(Vec<String>),
 
         open_project(String),
+        create_project(),
         init(),
     }
 
     Output {
-        opened_project(Option<String>)
+        opened_project(Option<String>),
     }
 }
 
@@ -261,10 +273,10 @@ impl Deref for View {
 
 impl View {
     pub fn new(app: &Application) -> Self {
-        let model = Model::new(&app);
+        let frp = Frp::new();
+        let model = Model::new(&app, frp.clone_ref());
         let scene = app.display.scene();
         let styles = StyleWatchFrp::new(&scene.style_sheet);
-        let frp = Frp::new();
         let network = &frp.network;
         let logger = &model.logger;
         let frp_clone = frp.clone();

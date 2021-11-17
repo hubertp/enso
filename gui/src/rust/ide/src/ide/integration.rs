@@ -68,7 +68,6 @@ impl Model {
     }
 
     fn open_project(&self, name: &str) {
-        error!(self.logger, "Look, we are opening a project now!");
         let logger = self.logger.clone_ref();
         let controller = self.controller.clone_ref();
         let name = name.to_owned();
@@ -84,9 +83,23 @@ impl Model {
                             if let Err(err) = managing_api.open_project(uuid).await {
                                 error!(logger, "Could not open open project `{name}`: {err}");
                             }
+                        } else {
+                            error!(logger, "Could not find project with name {name}");
                         }
                     }
                     Err(err) => error!(logger, "Could not list projects: {err}")
+                }
+            }
+        })
+    }
+
+    fn create_project(&self) {
+        let logger = self.logger.clone_ref();
+        let controller = self.controller.clone_ref();
+        crate::executor::global::spawn(async move {
+            if let Ok(managing_api) = controller.manage_projects() {
+                if let Err(err) = managing_api.create_new_project().await {
+                    error!(logger, "Could not create new project: {err}");
                 }
             }
         })
@@ -111,14 +124,20 @@ impl Integration {
         let logger = Logger::new("ide::Integration");
         let project_integration = default();
         let welcome_view_frp = view.welcome_view().frp.clone_ref();
-        let root_frp = view.frp.clone_ref();
-        let model = Rc::new(Model { logger, controller, view, project_integration });
+        let model = Rc::new(Model { logger, controller, view: view.clone_ref(), project_integration });
 
         frp::new_network! { network
             let opened_project = welcome_view_frp.opened_project.clone_ref();
             project_opened <- opened_project.filter_map(|name| name.clone());
+            let root_frp = view.frp.clone_ref();
             eval project_opened((name) {
                 model.open_project(name);
+                root_frp.switch_view.emit(());
+            });
+
+            let root_frp = view.frp.clone_ref();
+            eval_ welcome_view_frp.create_project({
+                model.create_project();
                 root_frp.switch_view.emit(());
             });
         };

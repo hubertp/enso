@@ -59,9 +59,9 @@ impl Model {
 
         let dom = DomSymbol::new(&welcome_screen);
         display_object.add_child(&dom);
-        app.display.scene().dom.layers.back.manage(&dom);
         // Use `panel` layer to lock position when panning
         app.display.scene().layers.panel.add_exclusive(&dom);
+        app.display.scene().dom.layers.panel.manage(&dom);
 
 
         let model = Self {

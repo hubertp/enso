@@ -27,6 +27,8 @@
   `Vector.filter_with_index`. Made `Vector.at` accept negative indices and
   ensured it fails with a dataflow error on out of bounds access instead of an
   internal Java exception.][3232]
+- [General improved Vector performance and new `Vector.each_with_index`,
+  `Vector.fold_with_index` and `Vector.take` methods.][3236]
 
 [3153]: https://github.com/enso-org/enso/pull/3153
 [3166]: https://github.com/enso-org/enso/pull/3166
@@ -38,6 +40,7 @@
 [3229]: https://github.com/enso-org/enso/pull/3229
 [3231]: https://github.com/enso-org/enso/pull/3231
 [3232]: https://github.com/enso-org/enso/pull/3232
+[3236]: https://github.com/enso-org/enso/pull/3236
 
 # Enso 2.0.0-alpha.18 (2021-10-12)
 

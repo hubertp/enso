@@ -1,0 +1,14 @@
+from Standard.Base import all
+
+import Standard.Base.Ordering.Natural_Order
+
+import Standard.Test
+
+spec = Test.group "Natural Order" <|
+    Test.specify "should behave as expected" <|
+        Natural_Order.compare "a1" "a2" . should_equal Ordering.Less
+        Natural_Order.compare "a2" "a100" . should_equal Ordering.Less
+
+        Natural_Order.compare "b2" "a1" . should_equal Ordering.Greater
+
+main = Test.Suite.run_main here.spec

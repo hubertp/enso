@@ -1,0 +1,38 @@
+from Standard.Base import all
+
+import Standard.Base.Data.Text.Regex
+import Standard.Base.Data.Text.Regex.Mode
+
+# 1.0001 < 1.01 < 1.0002
+
+## Compares two text values according to the natural dictionary ordering.
+
+   > Example
+     Natural_Order.compare "a2" "a100" == Ordering.Less
+compare : Text -> Text -> Ordering
+compare text1 text2 =
+
+
+    # split
+    # parse numbers
+    # vector comparator
+    # compare the vectors
+
+to_natural_key : Text -> Vector
+to_natural_key text =
+    is_number_regex = Regex.compile "\d+"
+    parts = is_number_regex.split text mode=Mode.All
+    parts.map part-> case is_number_regex.matches part of
+        True ->
+            Natural_Ordering_Numeric_Part ... ...
+        False ->
+            Natural_Ordering_Alphabetical_Part part
+
+## PRIVATE
+type Natural_Ordering_Part
+    ## PRIVATE
+    type Natural_Ordering_Alphabetical_Part (text : Text)
+
+    ## PRIVATE
+    type Natural_Ordering_Numeric_Part (value : Integer) (leading_zeros : Integer)
+

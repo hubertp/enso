@@ -2,6 +2,9 @@ from Standard.Base import all
 
 import Standard.Base.Data.Text.Regex
 import Standard.Base.Data.Text.Regex.Mode
+import Standard.Base.Data.Ordering.Vector_Lexicographic_Order
+import Standard.Table
+polyglot java import org.enso.table.util.Splitter
 
 ## Compares two text values according to the natural dictionary ordering.
 
@@ -18,16 +21,29 @@ compare : Text -> Text -> Ordering
 compare text1 text2 =
     nat1 = here.to_natural_key text1
     nat2 = here.to_natural_key text2
+    IO.println "Comparing "+text1+" with "+text2
+    IO.println text1+" -> "+nat1.to_text
+    IO.println text2+" -> "+nat2.to_text
     Vector_Lexicographic_Order.compare nat1 nat2
 
 ## PRIVATE
 to_natural_key : Text -> Vector
-to_natural_key text =
-    is_number_regex = Regex.compile "\d+"
-    parts = is_number_regex.split text mode=Mode.All
+to_natural_key text = if text.is_empty then [] else
+    # splitter_regex = Regex.compile "([^0-9]+|[0-9]+)"
+    is_number_regex = Regex.compile "[0-9]+"
+    # parts = is_number_regex.split text mode=Mode.All
+    # parts = splitter_regex.match text mode=Mode.All . map match-> match.group 0
+    parts = Vector.from_array <| Splitter.split text
     parts.map part-> case is_number_regex.matches part of
         True ->
-            Natural_Ordering_Numeric_Part ... ...
+            value = Decimal.parse part
+            # TODO [RW] once implemented it should use `part.take (While (_ == "0")) . length`
+            zeros =
+                chars = part.characters
+                IO.println chars
+                go ix = if ix>=chars.length then ix else if chars.at ix != "0" then ix else @Tail_Call go ix+1
+                go 0
+            Natural_Ordering_Numeric_Part value zeros
         False ->
             Natural_Ordering_Alphabetical_Part part
 
@@ -39,3 +55,19 @@ type Natural_Ordering_Part
     ## PRIVATE
     type Natural_Ordering_Numeric_Part (value : Integer) (leading_zeros : Integer)
 
+    ## PRIVATE
+    compare_to : Natural_Ordering_Part -> Ordering
+    compare_to that = case Pair this that of
+        Pair (Natural_Ordering_Alphabetical_Part text1) (Natural_Ordering_Alphabetical_Part text2) ->
+            text1 . compare_to text2
+        Pair (Natural_Ordering_Numeric_Part value1 zeros1) (Natural_Ordering_Numeric_Part value2 zeros2) ->
+            value_ordering = value1.compare_to value2
+            case value_ordering of
+                Ordering.Equal -> zeros2 . compare_to zeros1
+                _ -> value_ordering
+        _ -> Panic.throw "Implementation error: The implementation should ensure that different key parts are never compared. Please repor this as a bug in the Natural_Order module."
+
+    to_text : Text
+    to_text = case this of
+        Natural_Ordering_Alphabetical_Part text -> text.to_text
+        Natural_Ordering_Numeric_Part v zs -> [v, zs].to_text

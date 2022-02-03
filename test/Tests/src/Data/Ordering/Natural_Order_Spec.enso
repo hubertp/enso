@@ -1,18 +1,24 @@
 from Standard.Base import all
 
-import Standard.Base.Ordering.Natural_Order
+import Standard.Base.Data.Ordering.Natural_Order
 
 import Standard.Test
 
 spec = Test.group "Natural Order" <|
     Test.specify "should behave as shown in examples" <|
-        ["a2", "a1", "a100", "a001", "a0001"].sort by=Natural_Order.compare . should_equal ["a0001", "a001", "a1", "a2", "a100"]
         Natural_Order.compare "a2" "a100" . should_equal Ordering.Less
+        ["a2", "a1", "a100", "a001", "a0001"].sort by=Natural_Order.compare . should_equal ["a0001", "a001", "a1", "a2", "a100"]
 
     Test.specify "should correctly compare values" <|
         # TODO more edge cases
         Natural_Order.compare "a1" "a2" . should_equal Ordering.Less
+        Natural_Order.compare "a0001" "a01" . should_equal Ordering.Less
+        Natural_Order.compare "a0001" "a1" . should_equal Ordering.Less
+        Natural_Order.compare "a0001" "a100" . should_equal Ordering.Less
+        Natural_Order.compare "a100" "a2" . should_equal Ordering.Greater
         Natural_Order.compare "b2" "a1" . should_equal Ordering.Greater
+        Natural_Order.compare "" "1" . should_equal Ordering.Less
+        Natural_Order.compare "" "a" . should_equal Ordering.Less
 
     Test.specify "should correctly work with groups of numbers and delimiters" <|
         ["255.255.0.0", "127.0.0.1", "255.255.255.0", "200"].sort by=Natural_Order.compare . should_equal ["127.0.0.1", "200", "255.255.0.0", "255.255.255.0"]

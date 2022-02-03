@@ -32,7 +32,7 @@ compare vector1 vector2 (element_comparator = _.compare_to _) =
         True ->
             current_element_ordering = element_comparator (vector1.at ix) (vector2.at ix)
             case current_element_ordering of
-                Equal ->
+                Ordering.Equal ->
                     ## If the current elements are equal, we need to compare the
                        next elements (if any).
                     @Tail_Call go ix+1

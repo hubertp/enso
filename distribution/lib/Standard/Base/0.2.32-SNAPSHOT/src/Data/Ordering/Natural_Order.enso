@@ -3,21 +3,24 @@ from Standard.Base import all
 import Standard.Base.Data.Text.Regex
 import Standard.Base.Data.Text.Regex.Mode
 
-# 1.0001 < 1.01 < 1.0002
-
 ## Compares two text values according to the natural dictionary ordering.
 
    > Example
-     Natural_Order.compare "a2" "a100" == Ordering.Less
+     Compare two texts according to the natural dictionary ordering.
+
+         Natural_Order.compare "a2" "a100" == Ordering.Less
+
+   > Example
+     Sort a vector of texts according to the natural dictionary ordering.
+
+         ["a2", "a1", "a100", "a001", "a0001"].sort by=Natural_Order.compare . should_equal ["a0001", "a001", "a1", "a2", "a100"]
 compare : Text -> Text -> Ordering
 compare text1 text2 =
+    nat1 = here.to_natural_key text1
+    nat2 = here.to_natural_key text2
+    Vector_Lexicographic_Order.compare nat1 nat2
 
-
-    # split
-    # parse numbers
-    # vector comparator
-    # compare the vectors
-
+## PRIVATE
 to_natural_key : Text -> Vector
 to_natural_key text =
     is_number_regex = Regex.compile "\d+"

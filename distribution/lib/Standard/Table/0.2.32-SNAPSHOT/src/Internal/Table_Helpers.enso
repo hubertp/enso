@@ -128,7 +128,7 @@ sort_columns : Vector -> Sort_Method -> Vector
 sort_columns internal_columns sort_method =
     mapper = case sort_method.case_sensitive of
         True -> _.name
-        Case_Insensitive ->
+        Matching.Case_Insensitive ->
             col -> col.name.to_lower_case
     comparator = case sort_method.natural_order of
         True -> Natural_Order.compare

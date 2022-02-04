@@ -422,14 +422,14 @@ type Table
        > Example
          Sort columns according to the natural case-insensitive ordering.
 
-             table.sort_columns (Sort_Method natural_order=True case_senitive=Case_Insensitive)
+             table.sort_columns (Sort_Method natural_order=True case_sensitive=Case_Insensitive)
 
        > Example
          Sort columns in descending order.
 
              table.reorder_columns (Sort_Method order=Sort_Order.Descending)
     sort_columns : Sort_Method -> Table
-    reorder_columns (sort_method = Sort_Method.new) =
+    sort_columns (sort_method = Sort_Method.new) =
         new_columns = Table_Helpers.sort_columns internal_columns=this.columns sort_method
         here.new new_columns
 

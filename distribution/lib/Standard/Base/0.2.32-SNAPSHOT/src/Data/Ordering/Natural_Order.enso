@@ -20,7 +20,12 @@ compare : Text -> Text -> Ordering
 compare text1 text2 =
     nat1 = here.to_natural_key text1
     nat2 = here.to_natural_key text2
-    Vector_Lexicographic_Order.compare nat1 nat2
+    ## TODO [RW] for some reason removing this `res` and returning the result
+       directly will make Vector.sort behave badly. This needs to be investigated
+       and filed as a bug, then this comment can be updated with a reference to a
+       relevant ticket.
+    res = Vector_Lexicographic_Order.compare nat1 nat2
+    res
 
 ## PRIVATE
 to_natural_key : Text -> Vector
